@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CronLite — Lightweight Task Scheduler</title>
+<meta name="description" content="A zero-dependency task scheduler with full cron parsing, DAG dependencies, retry strategies, and SQLite persistence. Built entirely from Python's standard library.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Geist:wght@400;500&family=Geist+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --amber-50:oklch(0.97 0.02 70);
+  --amber-100:oklch(0.93 0.05 70);
+  --amber-200:oklch(0.87 0.09 70);
+  --amber-400:oklch(0.76 0.16 70);
+  --amber-500:oklch(0.70 0.18 70);
+  --amber-600:oklch(0.60 0.16 70);
+  --amber-900:oklch(0.28 0.06 70);
+  --amber-950:oklch(0.18 0.03 70);
+  --stone-50:oklch(0.97 0.005 70);
+  --stone-100:oklch(0.93 0.005 70);
+  --stone-200:oklch(0.87 0.005 70);
+  --stone-400:oklch(0.64 0.005 70);
+  --stone-600:oklch(0.48 0.005 70);
+  --stone-800:oklch(0.30 0.005 70);
+  --stone-900:oklch(0.22 0.005 70);
+  --stone-950:oklch(0.14 0.005 70);
+  --font-display:'Bricolage Grotesque',sans-serif;
+  --font-body:'Geist',sans-serif;
+  --font-mono:'Geist Mono',monospace;
+}
+html{font-size:17px;scroll-behavior:smooth}
+body{font-family:var(--font-body);background:var(--stone-950);color:var(--stone-200);line-height:1.65;-webkit-font-smoothing:antialiased}
+
+/* === QUOTE-LED HERO === */
+.hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:3rem 1.5rem;text-align:center;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 60% 50% at 50% 40%, oklch(0.24 0.08 70 / 0.4) 0%, transparent 70%);pointer-events:none}
+.hero-badge{display:inline-flex;align-items:center;gap:0.5rem;padding:0.35rem 1rem;border-radius:999px;border:1px solid oklch(0.70 0.18 70 / 0.25);background:oklch(0.70 0.18 70 / 0.08);color:var(--amber-400);font-family:var(--font-mono);font-size:0.75rem;letter-spacing:0.04em;text-transform:uppercase;margin-bottom:2rem;position:relative}
+.hero-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--amber-500);animation:pulse 2s ease infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+
+blockquote.hero-quote{max-width:56rem;font-family:var(--font-display);font-size:clamp(2rem, 5vw, 3.6rem);font-weight:800;line-height:1.15;color:var(--stone-50);position:relative;letter-spacing:-0.02em}
+blockquote.hero-quote::before{content:'"';font-size:6em;line-height:1;position:absolute;top:-0.28em;left:-0.35em;color:var(--amber-500);opacity:0.18;font-family:Georgia,serif}
+blockquote.hero-quote em{font-style:normal;color:var(--amber-400)}
+.hero-sub{max-width:36rem;margin-top:1.5rem;font-size:1.05rem;color:var(--stone-400);line-height:1.7}
+.hero-actions{margin-top:2.5rem;display:flex;gap:1rem;flex-wrap:wrap;justify-content:center}
+.btn{display:inline-flex;align-items:center;gap:0.5rem;padding:0.75rem 1.5rem;border-radius:8px;font-family:var(--font-body);font-weight:500;font-size:0.95rem;text-decoration:none;transition:all 0.15s ease}
+.btn-primary{background:var(--amber-500);color:var(--stone-950);border:1px solid var(--amber-400)}
+.btn-primary:hover{background:var(--amber-400)}
+.btn-ghost{background:transparent;color:var(--stone-200);border:1px solid var(--stone-600)}
+.btn-ghost:hover{border-color:var(--stone-400);color:var(--stone-50)}
+
+/* === FEATURE RAIL === */
+.rail{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1px;background:oklch(0.22 0.005 70);border-top:1px solid oklch(0.22 0.005 70);border-bottom:1px solid oklch(0.22 0.005 70)}
+.rail-card{background:var(--stone-950);padding:2.5rem 2rem}
+.rail-card h3{font-family:var(--font-display);font-size:1.15rem;font-weight:600;color:var(--stone-50);margin-bottom:0.5rem}
+.rail-card .icon{font-size:1.5rem;margin-bottom:0.75rem}
+.rail-card p{font-size:0.9rem;color:var(--stone-400);line-height:1.6}
+
+/* === SECTION === */
+section{padding:5rem 1.5rem}
+.container{max-width:64rem;margin:0 auto}
+.section-label{font-family:var(--font-mono);font-size:0.75rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--amber-500);margin-bottom:0.75rem}
+.section-title{font-family:var(--font-display);font-size:clamp(1.6rem, 3vw, 2.2rem);font-weight:800;color:var(--stone-50);line-height:1.2;margin-bottom:1.5rem;letter-spacing:-0.015em}
+.section-desc{max-width:38rem;font-size:1rem;color:var(--stone-400);line-height:1.7;margin-bottom:3rem}
+
+/* === CODE BLOCKS === */
+pre{background:oklch(0.12 0.005 70);border:1px solid oklch(0.22 0.005 70);border-radius:10px;padding:1.5rem;overflow-x:auto;font-family:var(--font-mono);font-size:0.82rem;line-height:1.7;color:var(--stone-200)}
+pre .comment{color:var(--stone-600)}
+pre .kw{color:var(--amber-400)}
+pre .str{color:oklch(0.75 0.12 160)}
+pre .fn{color:oklch(0.80 0.14 250)}
+pre .num{color:oklch(0.78 0.14 30)}
+
+/* === ARCHITECTURE === */
+.arch-grid{display:grid;grid-template-columns:1fr 1fr;gap:3rem;align-items:start}
+@media(max-width:768px){.arch-grid{grid-template-columns:1fr}}
+.arch-list{list-style:none;display:flex;flex-direction:column;gap:1.25rem}
+.arch-list li{display:flex;gap:1rem;align-items:start}
+.arch-list .marker{width:32px;height:32px;border-radius:8px;background:oklch(0.70 0.18 70 / 0.1);border:1px solid oklch(0.70 0.18 70 / 0.2);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:0.7rem;color:var(--amber-400);flex-shrink:0}
+.arch-list h4{font-family:var(--font-display);font-size:0.95rem;font-weight:600;color:var(--stone-50);margin-bottom:0.2rem}
+.arch-list p{font-size:0.85rem;color:var(--stone-400);line-height:1.55}
+
+/* === CLI SHOWCASE === */
+.cli-window{background:oklch(0.10 0.003 70);border:1px solid oklch(0.20 0.005 70);border-radius:12px;overflow:hidden}
+.cli-bar{display:flex;align-items:center;gap:0.5rem;padding:0.75rem 1rem;background:oklch(0.14 0.003 70);border-bottom:1px solid oklch(0.20 0.005 70)}
+.cli-dot{width:10px;height:10px;border-radius:50%}
+.cli-dot.r{background:#ff5f57}.cli-dot.y{background:#febc2e}.cli-dot.g{background:#28c840}
+.cli-title{font-family:var(--font-mono);font-size:0.72rem;color:var(--stone-600);margin-left:0.5rem}
+.cli-body{padding:1.25rem 1.5rem;font-family:var(--font-mono);font-size:0.8rem;line-height:1.75;color:var(--stone-200);overflow-x:auto;white-space:pre}
+.cli-body .prompt{color:var(--amber-400)}
+.cli-body .output{color:var(--stone-400)}
+
+/* === STATS ROW === */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:oklch(0.22 0.005 70);border:1px solid oklch(0.22 0.005 70);border-radius:12px;overflow:hidden;margin-top:3rem}
+.stat{background:var(--stone-950);padding:2rem 1.5rem;text-align:center}
+.stat-val{font-family:var(--font-display);font-size:2rem;font-weight:800;color:var(--amber-400)}
+.stat-label{font-size:0.8rem;color:var(--stone-400);margin-top:0.25rem}
+@media(max-width:640px){.stats-row{grid-template-columns:1fr 1fr}}
+
+/* === FOOTER === */
+footer{border-top:1px solid oklch(0.20 0.005 70);padding:3rem 1.5rem;text-align:center}
+footer p{font-size:0.85rem;color:var(--stone-600)}
+footer a{color:var(--amber-500);text-decoration:none}
+footer a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+
+<!-- HERO: QUOTE-LED -->
+<section class="hero">
+  <span class="hero-badge"><span class="dot"></span> Zero Dependencies</span>
+  <blockquote class="hero-quote">
+    Every cron parser I found pulled in <em>thirty packages</em>.<br>
+    So I built one from scratch — and then the whole scheduler.
+  </blockquote>
+  <p class="hero-sub">
+    CronLite is a lightweight task scheduler written in pure Python.
+    Full POSIX cron syntax, DAG dependencies, retry strategies, SQLite persistence,
+    an HTTP API, and a CLI — all from the standard library. Nothing else.
+  </p>
+  <div class="hero-actions">
+    <a href="https://github.com/hajirufai/cronlite" class="btn btn-primary">View on GitHub →</a>
+    <a href="#quickstart" class="btn btn-ghost">Quick Start</a>
+  </div>
+</section>
+
+<!-- FEATURE RAIL -->
+<div class="rail">
+  <div class="rail-card">
+    <div class="icon">⏱</div>
+    <h3>Full Cron Parsing</h3>
+    <p>Wildcards, ranges, steps, lists, month/day names, and presets (@daily, @hourly). POSIX-compliant DOM/DOW union semantics.</p>
+  </div>
+  <div class="rail-card">
+    <div class="icon">🔄</div>
+    <h3>Retry Strategies</h3>
+    <p>Fixed, linear, and exponential backoff with configurable max delay. Jobs recover from transient failures automatically.</p>
+  </div>
+  <div class="rail-card">
+    <div class="icon">🔀</div>
+    <h3>DAG Dependencies</h3>
+    <p>Define job chains with cycle detection and topological ordering. Jobs wait for upstream dependencies before running.</p>
+  </div>
+  <div class="rail-card">
+    <div class="icon">💾</div>
+    <h3>SQLite Persistence</h3>
+    <p>Jobs and execution history survive restarts. WAL mode for concurrent reads. In-memory store for testing.</p>
+  </div>
+  <div class="rail-card">
+    <div class="icon">🌐</div>
+    <h3>HTTP API</h3>
+    <p>15+ RESTful endpoints for job CRUD, triggering, history, health checks, and cron validation. stdlib http.server.</p>
+  </div>
+  <div class="rail-card">
+    <div class="icon">🖥</div>
+    <h3>Full CLI</h3>
+    <p>Add, remove, list, trigger, explain, and monitor jobs from the terminal. JSON output for scripting.</p>
+  </div>
+</div>
+
+<!-- QUICK START -->
+<section id="quickstart">
+  <div class="container">
+    <span class="section-label">Quick Start</span>
+    <h2 class="section-title">Up and running in four lines</h2>
+    <p class="section-desc">Clone the repo, add a job, and start the scheduler. No pip install, no virtual environment, no config files.</p>
+    <div class="cli-window">
+      <div class="cli-bar">
+        <span class="cli-dot r"></span><span class="cli-dot y"></span><span class="cli-dot g"></span>
+        <span class="cli-title">terminal</span>
+      </div>
+      <div class="cli-body"><span class="prompt">$</span> git clone https://github.com/hajirufai/cronlite.git && cd cronlite
+<span class="prompt">$</span> python -m cronlite add backup "0 2 * * *" "pg_dump mydb > /backups/db.sql"
+<span class="output">✓ Added job: backup
+  ID:         job_a8f3c1d902e1
+  Schedule:   0 2 * * *
+  Next run:   2026-06-02 02:00:00</span>
+
+<span class="prompt">$</span> python -m cronlite explain "*/15 9-17 * * MON-FRI"
+<span class="output">Expression: */15 9-17 * * MON-FRI
+Meaning:    Every 15 minutes, between 09:00 and 17:59, on weekdays</span>
+
+<span class="prompt">$</span> python -m cronlite start --workers 4 --port 8080
+<span class="output">API server listening on http://127.0.0.1:8080
+Starting scheduler with 4 workers...
+2026-06-01 [cronlite.engine] Loaded 1 jobs (1 enabled)
+2026-06-01 [cronlite.engine] Scheduler started</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ARCHITECTURE -->
+<section>
+  <div class="container">
+    <span class="section-label">Architecture</span>
+    <h2 class="section-title">What's inside the ~5,000 lines</h2>
+    <p class="section-desc">Every component is hand-written. No frameworks, no ORMs, no magic. Just clear abstractions that fit together.</p>
+    <div class="arch-grid">
+      <ul class="arch-list">
+        <li>
+          <div class="marker">01</div>
+          <div>
+            <h4>Cron Parser</h4>
+            <p>Recursive-descent parser for 5-field expressions. Handles wildcards, ranges, steps, lists, month/day names, and named presets. Produces immutable CronExpression objects.</p>
+          </div>
+        </li>
+        <li>
+          <div class="marker">02</div>
+          <div>
+            <h4>Expression Engine</h4>
+            <p>Efficient next_run() using field-level advancement instead of brute-force minute scanning. Handles month boundaries, leap years, and POSIX DOM/DOW union semantics.</p>
+          </div>
+        </li>
+        <li>
+          <div class="marker">03</div>
+          <div>
+            <h4>Scheduler Core</h4>
+            <p>Min-heap priority queue keyed by next-run timestamp. Each tick pops due jobs and submits them to a fixed-size thread pool. O(log n) insert and extract.</p>
+          </div>
+        </li>
+        <li>
+          <div class="marker">04</div>
+          <div>
+            <h4>Job Executor</h4>
+            <p>Runs commands as subprocesses with timeout enforcement, output capture, and exit code tracking. Handles zombie processes and UTF-8 decode errors.</p>
+          </div>
+        </li>
+      </ul>
+      <ul class="arch-list">
+        <li>
+          <div class="marker">05</div>
+          <div>
+            <h4>DAG Dependencies</h4>
+            <p>Directed acyclic graph with DFS 3-color cycle detection and Kahn's topological sort. Dependency resolution triggers downstream jobs on completion.</p>
+          </div>
+        </li>
+        <li>
+          <div class="marker">06</div>
+          <div>
+            <h4>Retry Engine</h4>
+            <p>Pluggable retry policies — fixed, linear, exponential — with a configurable delay cap. The engine re-executes failed jobs before marking them as permanently failed.</p>
+          </div>
+        </li>
+        <li>
+          <div class="marker">07</div>
+          <div>
+            <h4>Storage Layer</h4>
+            <p>MemoryStore for tests, SQLiteStore for production. Both share the same ABC. WAL journal mode for concurrent access. Schema migrations on init.</p>
+          </div>
+        </li>
+        <li>
+          <div class="marker">08</div>
+          <div>
+            <h4>Health Checker</h4>
+            <p>Detects missed schedules, overdue executions, and failure streaks. Produces structured health reports for monitoring integrations.</p>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <!-- STATS -->
+    <div class="stats-row">
+      <div class="stat"><div class="stat-val">219</div><div class="stat-label">Passing Tests</div></div>
+      <div class="stat"><div class="stat-val">0</div><div class="stat-label">Dependencies</div></div>
+      <div class="stat"><div class="stat-val">22</div><div class="stat-label">Source Modules</div></div>
+      <div class="stat"><div class="stat-val">15+</div><div class="stat-label">API Endpoints</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- API PREVIEW -->
+<section>
+  <div class="container">
+    <span class="section-label">HTTP API</span>
+    <h2 class="section-title">REST endpoints for everything</h2>
+    <p class="section-desc">Manage jobs, query history, and validate cron expressions over HTTP. Built on stdlib http.server — no Flask required.</p>
+    <pre><code><span class="comment"># Create a job</span>
+curl -X POST http://localhost:8080/api/v1/jobs \
+  -H <span class="str">"Content-Type: application/json"</span> \
+  -d <span class="str">'{
+    "name": "etl-pipeline",
+    "expression": "0 */6 * * *",
+    "command": "python run_etl.py",
+    "max_retries": 3,
+    "retry_strategy": "exponential",
+    "tags": ["data", "production"]
+  }'</span>
+
+<span class="comment"># Validate a cron expression</span>
+curl -X POST http://localhost:8080/api/v1/cron/validate \
+  -d <span class="str">'{"expression": "*/15 9-17 * * MON-FRI"}'</span>
+<span class="comment"># → {"valid": true, "description": "Every 15 minutes, between 09:00 and 17:59, on weekdays"}</span>
+
+<span class="comment"># Get health report</span>
+curl http://localhost:8080/api/v1/health
+<span class="comment"># → {"status": "healthy", "total_jobs": 5, "missed_jobs": [], ...}</span></code></pre>
+  </div>
+</section>
+
+<!-- PYTHON API PREVIEW -->
+<section>
+  <div class="container">
+    <span class="section-label">Python API</span>
+    <h2 class="section-title">Or use it as a library</h2>
+    <pre><code><span class="kw">from</span> cronlite <span class="kw">import</span> CronParser, Job, SQLiteStore, SchedulerEngine, Config
+
+<span class="comment"># Parse and inspect cron expressions</span>
+parser = CronParser()
+expr = parser.parse(<span class="str">"*/15 9-17 * * MON-FRI"</span>)
+print(expr.explain())
+<span class="comment"># → "Every 15 minutes, between 09:00 and 17:59, on weekdays"</span>
+
+<span class="comment"># Set up a persistent scheduler</span>
+store = SQLiteStore(<span class="str">"scheduler.db"</span>)
+engine = SchedulerEngine(store, Config(max_workers=<span class="num">4</span>))
+
+<span class="comment"># Add a job with retries</span>
+job = Job(
+    id=<span class="str">""</span>, name=<span class="str">"etl-pipeline"</span>,
+    expression=<span class="str">"0 */6 * * *"</span>,
+    command=<span class="str">"python run_etl.py"</span>,
+    max_retries=<span class="num">3</span>,
+    retry_strategy=RetryStrategy.EXPONENTIAL,
+)
+engine.add_job(job)
+
+<span class="comment"># Start the scheduler (blocks)</span>
+engine.start_blocking()</code></pre>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <p>Built by <a href="https://github.com/hajirufai">Haji Rufai</a> · MIT License · <a href="https://github.com/hajirufai/cronlite">Source on GitHub</a></p>
+  </div>
+</footer>
+
+</body>
+</html>
